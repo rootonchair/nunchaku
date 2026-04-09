@@ -150,6 +150,7 @@ if __name__ == "__main__":
             "src/layernorm.cpp",
             "src/Linear.cpp",
             *ncond("src/FluxModel.cpp"),
+            *ncond("src/Flux2Model.cpp"),
             *ncond("src/SanaModel.cpp"),
             "src/Serialization.cpp",
             "src/Module.cpp",

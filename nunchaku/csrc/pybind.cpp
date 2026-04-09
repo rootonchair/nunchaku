@@ -1,6 +1,7 @@
 #include "gemm.h"
 #include "gemm88.h"
 #include "flux.h"
+#include "flux2.h"
 #include "sana.h"
 #include "ops.h"
 #include "utils.h"
@@ -67,6 +68,39 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("setLoraScale", &QuantizedFluxModel::setLoraScale)
         .def("setAttentionImpl", &QuantizedFluxModel::setAttentionImpl)
         .def("isBF16", &QuantizedFluxModel::isBF16);
+    py::class_<QuantizedFlux2Model>(m, "QuantizedFlux2Model")
+        .def(py::init<>())
+        .def("init",
+             &QuantizedFlux2Model::init,
+             py::arg("num_layers"),
+             py::arg("num_single_layers"),
+             py::arg("dim"),
+             py::arg("num_attention_heads"),
+             py::arg("attention_head_dim"),
+             py::arg("mlp_ratio"),
+             py::arg("use_fp4"),
+             py::arg("offload"),
+             py::arg("bf16"),
+             py::arg("deviceId"))
+        .def("reset", &QuantizedFlux2Model::reset)
+        .def("load", &QuantizedFlux2Model::load, py::arg("path"), py::arg("partial") = false)
+        .def("loadDict", &QuantizedFlux2Model::loadDict, py::arg("dict"), py::arg("partial") = false)
+        .def("forward",
+             &QuantizedFlux2Model::forward,
+             py::arg("hidden_states"),
+             py::arg("encoder_hidden_states"),
+             py::arg("mod_img"),
+             py::arg("mod_txt"),
+             py::arg("mod_single"),
+             py::arg("rotary_emb_img"),
+             py::arg("rotary_emb_txt"),
+             py::arg("rotary_emb_single"))
+        .def("startDebug", &QuantizedFlux2Model::startDebug)
+        .def("stopDebug", &QuantizedFlux2Model::stopDebug)
+        .def("getDebugResults", &QuantizedFlux2Model::getDebugResults)
+        .def("setLoraScale", &QuantizedFlux2Model::setLoraScale)
+        .def("setAttentionImpl", &QuantizedFlux2Model::setAttentionImpl)
+        .def("isBF16", &QuantizedFlux2Model::isBF16);
     py::class_<QuantizedSanaModel>(m, "QuantizedSanaModel")
         .def(py::init<>())
         .def("init",

@@ -107,7 +107,7 @@ def main():
         print("\n>>> Loading Nunchaku (INT4) pipeline...")
         flush()
         transformer = NunchakuFlux2Transformer2DModel.from_pretrained(
-            args.weights, torch_dtype=torch.bfloat16, device="cuda"
+            args.weights, torch_dtype=torch.bfloat16
         )
         pipe = Flux2KleinPipeline.from_pretrained(REPO, torch_dtype=torch.bfloat16, transformer=transformer)
         pipe.to("cuda")
