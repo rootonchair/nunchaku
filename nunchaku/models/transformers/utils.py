@@ -171,6 +171,150 @@ def patch_scale_key(transformer_from_config: nn.Module, state_dict_from_checkpoi
                 m.wtscale = state_dict_from_checkpoint.pop(f"{n}.wtscale", 1.0)
 
 
+def convert_flux_state_dict(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    """
+    Convert a v1-style (C++ backend) state dict to diffusers-native key names
+    expected by :class:`~nunchaku.models.transformers.transformer_flux_v2.NunchakuFluxTransformer2DModelV2`.
+
+    Parameters
+    ----------
+    state_dict : dict[str, torch.Tensor]
+        The original state dict.
+
+    Returns
+    -------
+    dict[str, torch.Tensor]
+        The converted state dict.
+    """
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        if "single_transformer_blocks." in k:
+            if ".qkv_proj." in k:
+                new_k = k.replace(".qkv_proj.", ".attn.to_qkv.")
+            elif ".out_proj." in k:
+                new_k = k.replace(".out_proj.", ".attn.to_out.")
+            elif ".norm_q." in k or ".norm_k." in k:
+                new_k = k.replace(".norm_k.", ".attn.norm_k.")
+                new_k = new_k.replace(".norm_q.", ".attn.norm_q.")
+            else:
+                new_k = k
+            new_k = new_k.replace(".lora_down", ".proj_down")
+            new_k = new_k.replace(".lora_up", ".proj_up")
+            if ".smooth_orig" in k:
+                new_k = new_k.replace(".smooth_orig", ".smooth_factor_orig")
+            elif ".smooth" in k:
+                new_k = new_k.replace(".smooth", ".smooth_factor")
+            new_state_dict[new_k] = v
+        elif "transformer_blocks." in k:
+            if ".mlp_context_fc1" in k:
+                new_k = k.replace(".mlp_context_fc1.", ".ff_context.net.0.proj.")
+            elif ".mlp_context_fc2" in k:
+                new_k = k.replace(".mlp_context_fc2.", ".ff_context.net.2.")
+            elif ".mlp_fc1" in k:
+                new_k = k.replace(".mlp_fc1.", ".ff.net.0.proj.")
+            elif ".mlp_fc2" in k:
+                new_k = k.replace(".mlp_fc2.", ".ff.net.2.")
+            elif ".qkv_proj_context." in k:
+                new_k = k.replace(".qkv_proj_context.", ".attn.add_qkv_proj.")
+            elif ".qkv_proj." in k:
+                new_k = k.replace(".qkv_proj.", ".attn.to_qkv.")
+            elif ".norm_q." in k or ".norm_k." in k:
+                new_k = k.replace(".norm_k.", ".attn.norm_k.")
+                new_k = new_k.replace(".norm_q.", ".attn.norm_q.")
+            elif ".norm_added_q." in k or ".norm_added_k." in k:
+                new_k = k.replace(".norm_added_k.", ".attn.norm_added_k.")
+                new_k = new_k.replace(".norm_added_q.", ".attn.norm_added_q.")
+            elif ".out_proj." in k:
+                new_k = k.replace(".out_proj.", ".attn.to_out.0.")
+            elif ".out_proj_context." in k:
+                new_k = k.replace(".out_proj_context.", ".attn.to_add_out.")
+            else:
+                new_k = k
+            new_k = new_k.replace(".lora_down", ".proj_down")
+            new_k = new_k.replace(".lora_up", ".proj_up")
+            if ".smooth_orig" in k:
+                new_k = new_k.replace(".smooth_orig", ".smooth_factor_orig")
+            elif ".smooth" in k:
+                new_k = new_k.replace(".smooth", ".smooth_factor")
+            new_state_dict[new_k] = v
+        else:
+            new_state_dict[k] = v
+
+    return new_state_dict
+
+
+def convert_flux2_state_dict(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    """
+    Convert a v1-style (C++ backend) state dict to diffusers-native key names
+    expected by :class:`~nunchaku.models.transformers.transformer_flux2.NunchakuFlux2Transformer2DModel`.
+
+    Parameters
+    ----------
+    state_dict : dict[str, torch.Tensor]
+        The original state dict from a quantized safetensors checkpoint.
+
+    Returns
+    -------
+    dict[str, torch.Tensor]
+        The converted state dict.
+    """
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        if "single_transformer_blocks." in k:
+            if ".qkv_proj." in k:
+                new_k = k.replace(".qkv_proj.", ".attn.qkv_proj.")
+            elif ".out_proj." in k:
+                new_k = k.replace(".out_proj.", ".attn.out_proj.")
+            elif ".mlp_fc1." in k:
+                new_k = k.replace(".mlp_fc1.", ".attn.mlp_fc1.")
+            elif ".mlp_fc2." in k:
+                new_k = k.replace(".mlp_fc2.", ".attn.mlp_fc2.")
+            elif ".norm_q." in k or ".norm_k." in k:
+                new_k = k.replace(".norm_k.", ".attn.norm_k.")
+                new_k = new_k.replace(".norm_q.", ".attn.norm_q.")
+            else:
+                new_k = k
+        elif "transformer_blocks." in k:
+            if ".mlp_context_fc1." in k:
+                new_k = k.replace(".mlp_context_fc1.", ".ff_context.linear_in.")
+            elif ".mlp_context_fc2." in k:
+                new_k = k.replace(".mlp_context_fc2.", ".ff_context.linear_out.")
+            elif ".mlp_fc1." in k:
+                new_k = k.replace(".mlp_fc1.", ".ff.linear_in.")
+            elif ".mlp_fc2." in k:
+                new_k = k.replace(".mlp_fc2.", ".ff.linear_out.")
+            elif ".qkv_proj_context." in k:
+                new_k = k.replace(".qkv_proj_context.", ".attn.to_added_qkv.")
+            elif ".qkv_proj." in k:
+                new_k = k.replace(".qkv_proj.", ".attn.to_qkv.")
+            elif ".norm_added_q." in k or ".norm_added_k." in k:
+                new_k = k.replace(".norm_added_k.", ".attn.norm_added_k.")
+                new_k = new_k.replace(".norm_added_q.", ".attn.norm_added_q.")
+            elif ".norm_q." in k or ".norm_k." in k:
+                new_k = k.replace(".norm_k.", ".attn.norm_k.")
+                new_k = new_k.replace(".norm_q.", ".attn.norm_q.")
+            elif ".out_proj_context." in k:
+                new_k = k.replace(".out_proj_context.", ".attn.to_add_out.")
+            elif ".out_proj." in k:
+                new_k = k.replace(".out_proj.", ".attn.to_out.0.")
+            else:
+                new_k = k
+        else:
+            new_k = k
+
+        # Common renames: SVD projections and smooth factors
+        new_k = new_k.replace(".lora_down", ".proj_down")
+        new_k = new_k.replace(".lora_up", ".proj_up")
+        if ".smooth_orig" in new_k:
+            new_k = new_k.replace(".smooth_orig", ".smooth_factor_orig")
+        elif ".smooth" in new_k:
+            new_k = new_k.replace(".smooth", ".smooth_factor")
+
+        new_state_dict[new_k] = v
+
+    return new_state_dict
+
+
 def convert_fp16(transformer_from_config: nn.Module, state_dict_from_checkpoint: dict):
     state_dict = transformer_from_config.state_dict()
     for k in state_dict.keys():

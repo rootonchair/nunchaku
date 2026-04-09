@@ -26,7 +26,7 @@ from ..embeddings import NunchakuFluxPosEmbed, pack_rotemb
 from ..linear import SVDQW4A4Linear
 from ..normalization import NunchakuAdaLayerNormZero, NunchakuAdaLayerNormZeroSingle
 from ..utils import fuse_linears
-from .utils import NunchakuModelLoaderMixin, patch_scale_key
+from .utils import NunchakuModelLoaderMixin, convert_flux_state_dict, patch_scale_key
 
 
 class NunchakuFluxAttention(NunchakuBaseAttention):
@@ -559,75 +559,3 @@ class NunchakuFluxTransformer2DModelV2(FluxTransformer2DModel, NunchakuModelLoad
             return (output,)
 
         return Transformer2DModelOutput(sample=output)
-
-
-def convert_flux_state_dict(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-    """
-    Convert a state dict from the :class:`~nunchaku.models.transformers.transformer_flux.NunchakuFluxTransformer2dModel`
-    format to :class:`~nunchaku.models.transformers.transformer_flux_v2.NunchakuFluxTransformer2DModelV2` format.
-
-    Parameters
-    ----------
-    state_dict : dict[str, torch.Tensor]
-        The original state dict.
-
-    Returns
-    -------
-    dict[str, torch.Tensor]
-        The converted state dict compatible with :class:`~nunchaku.models.transformers.transformer_flux_v2.NunchakuFluxTransformer2DModelV2`.
-    """
-    new_state_dict = {}
-    for k, v in state_dict.items():
-        if "single_transformer_blocks." in k:
-            if ".qkv_proj." in k:
-                new_k = k.replace(".qkv_proj.", ".attn.to_qkv.")
-            elif ".out_proj." in k:
-                new_k = k.replace(".out_proj.", ".attn.to_out.")
-            elif ".norm_q." in k or ".norm_k." in k:
-                new_k = k.replace(".norm_k.", ".attn.norm_k.")
-                new_k = new_k.replace(".norm_q.", ".attn.norm_q.")
-            else:
-                new_k = k
-            new_k = new_k.replace(".lora_down", ".proj_down")
-            new_k = new_k.replace(".lora_up", ".proj_up")
-            if ".smooth_orig" in k:
-                new_k = new_k.replace(".smooth_orig", ".smooth_factor_orig")
-            elif ".smooth" in k:
-                new_k = new_k.replace(".smooth", ".smooth_factor")
-            new_state_dict[new_k] = v
-        elif "transformer_blocks." in k:
-            if ".mlp_context_fc1" in k:
-                new_k = k.replace(".mlp_context_fc1.", ".ff_context.net.0.proj.")
-            elif ".mlp_context_fc2" in k:
-                new_k = k.replace(".mlp_context_fc2.", ".ff_context.net.2.")
-            elif ".mlp_fc1" in k:
-                new_k = k.replace(".mlp_fc1.", ".ff.net.0.proj.")
-            elif ".mlp_fc2" in k:
-                new_k = k.replace(".mlp_fc2.", ".ff.net.2.")
-            elif ".qkv_proj_context." in k:
-                new_k = k.replace(".qkv_proj_context.", ".attn.add_qkv_proj.")
-            elif ".qkv_proj." in k:
-                new_k = k.replace(".qkv_proj.", ".attn.to_qkv.")
-            elif ".norm_q." in k or ".norm_k." in k:
-                new_k = k.replace(".norm_k.", ".attn.norm_k.")
-                new_k = new_k.replace(".norm_q.", ".attn.norm_q.")
-            elif ".norm_added_q." in k or ".norm_added_k." in k:
-                new_k = k.replace(".norm_added_k.", ".attn.norm_added_k.")
-                new_k = new_k.replace(".norm_added_q.", ".attn.norm_added_q.")
-            elif ".out_proj." in k:
-                new_k = k.replace(".out_proj.", ".attn.to_out.0.")
-            elif ".out_proj_context." in k:
-                new_k = k.replace(".out_proj_context.", ".attn.to_add_out.")
-            else:
-                new_k = k
-            new_k = new_k.replace(".lora_down", ".proj_down")
-            new_k = new_k.replace(".lora_up", ".proj_up")
-            if ".smooth_orig" in k:
-                new_k = new_k.replace(".smooth_orig", ".smooth_factor_orig")
-            elif ".smooth" in k:
-                new_k = new_k.replace(".smooth", ".smooth_factor")
-            new_state_dict[new_k] = v
-        else:
-            new_state_dict[k] = v
-
-    return new_state_dict

@@ -143,7 +143,7 @@ def merge_safetensors(
         quantization_config["skip_refiners"] = skip_refiners
     return state_dict, {
         "config": Path(config_path).read_text(),
-        "comfy_config": Path(comfy_config_path).read_text(),
+        # "comfy_config": Path(comfy_config_path).read_text(),
         "model_class": model_class,
         "quantization_config": json.dumps(quantization_config),
     }
